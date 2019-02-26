@@ -1,5 +1,8 @@
 package me.lachlanpage.b525helper;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
 import android.util.Log;
 
 import org.jsoup.Connection;
@@ -21,6 +24,10 @@ public class Modem implements Runnable {
     private String REQUEST_TOKEN = "__RequestVerificationToken";
 
     private String ADMIN_PASSWORD = "password";
+
+    private final String PREF_PASSWORD_NAME = "adminPassword";
+    private SharedPreferences mSettings;
+
 
 
     private String mLoggedInCookie;
@@ -149,8 +156,11 @@ public class Modem implements Runnable {
 
     }
 
-    public Modem() {
+    public Modem(Context context) {
         mIsLoggedIn = false;
 
+        mSettings = PreferenceManager.getDefaultSharedPreferences(context);
+
+        ADMIN_PASSWORD = mSettings.getString(PREF_PASSWORD_NAME, "password");
     }
 }
