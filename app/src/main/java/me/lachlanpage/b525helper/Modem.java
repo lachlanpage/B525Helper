@@ -1,10 +1,13 @@
 package me.lachlanpage.b525helper;
 
+import android.util.Log;
+
+import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
 // Modem class is responsible for handling and retrieving ALL information from Huawei Modem
-public class Modem {
+public class Modem implements Runnable {
 
     // API END POINTS
     private String MODEM_IP = "192.168.8.1";
@@ -20,6 +23,9 @@ public class Modem {
     private String ADMIN_PASSWORD = "password";
 
 
+    private String mLoggedInCookie;
+    private Boolean mIsLoggedIn;
+
     // TRAFFIC STATS
     private int currentConnectionTime;
     private Float currentUpload;
@@ -32,11 +38,49 @@ public class Modem {
     private Float totalDownload;
     private int totalConnectionTime;
 
+    private int cellID;
+    private int rsrq;
+    private int rsrp;
+    private int rssi ;
+    private int sinr ;
+    private int band;
+    private int uploadBandwidth;
+    private int downloadBandwidth;
 
-    // get fields from TRAFFIC_STATS_URL endpoint
+    public void getSignalStats() {
+        try {
+            Connection.Response res = Jsoup.connect(SIGNAL_URL).cookie("SessionID", mLoggedInCookie).execute();
+            // stats related to signal device information
+            Document signalDocument = res.parse();
+
+            cellID = Integer.parseInt(signalDocument.selectFirst("cell_id").text());
+            rsrq = Integer.parseInt(signalDocument.selectFirst("rsrq").text().replace("dB", ""));
+            rsrp = Integer.parseInt(signalDocument.selectFirst("rsrp").text().replace("dBm", ""));
+            rssi = Integer.parseInt(signalDocument.selectFirst("rssi").text().replace("dBm", ""));
+            sinr = Integer.parseInt(signalDocument.selectFirst("sinr").text().replace("dB", ""));
+            band = Integer.parseInt(signalDocument.selectFirst("band").text());
+            uploadBandwidth = Integer.parseInt(signalDocument.selectFirst("ulbandwidth").text().replace("MHz", ""));
+            downloadBandwidth = Integer.parseInt(signalDocument.selectFirst("dlbandwidth").text().replace("MHz", ""));
+
+            //System.out.println(signal_doc.toString());
+            System.out.println("cellID: " + cellID);
+            System.out.println("rsrq: " + rsrq);
+            System.out.println("rsrp: " + rsrp);
+            System.out.println("rssi: " + rssi);
+            System.out.println("sinr: " + sinr);
+            System.out.println("band: " + band);
+            System.out.println("ub: " + uploadBandwidth);
+            System.out.println("db: " + downloadBandwidth);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    // get stats from TRAFFIC_STATS_URL endpoint
     public void getTrafficStats() {
         try {
             Document trafficDocument = Jsoup.connect(TRAFFIC_STATS_URL).get();
+
             currentConnectionTime = Integer.parseInt(trafficDocument.selectFirst("currentconnecttime").text());
 
             currentUpload = Float.parseFloat(trafficDocument.selectFirst("currentupload").text());
@@ -51,7 +95,62 @@ public class Modem {
         } catch(Exception e) { e.printStackTrace(); }
     }
 
+    // attempt to login to router using SCRAM based authentication
+    private void login() {
+        try {
+            Connection.Response res = Jsoup.connect(HOMEPAGE).execute();
+
+            String sessionID = res.cookie("SessionID");
+
+            // Begin SCRAM authentication
+            UtilityCrypto crypto = new UtilityCrypto();
+
+            String clientNonce = crypto.generateClientNonce();
+
+            // B525 uses last 32 bits of server token
+            String serverToken = Jsoup.connect("http://192.168.8.1/api/webserver/token").get().selectFirst("token").text();
+            serverToken = serverToken.substring(serverToken.length() - 32, serverToken.length());
+
+            String scramBodyRequest = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><request><username>admin</username><firstnonce>" + clientNonce + "</firstnonce><mode>1</mode></request>";
+            res = Jsoup.connect("http://192.168.8.1/api/user/challenge_login").requestBody(scramBodyRequest).header("Content-type", "text/html").header(REQUEST_TOKEN, serverToken).cookie("SessionID", sessionID).method(Connection.Method.POST).execute();
+
+            String verificationToken = res.header(REQUEST_TOKEN);
+            Document authDocument = res.parse();
+            String serverNonce = authDocument.selectFirst("servernonce").text();
+            String salt = authDocument.selectFirst("salt").text();
+            int iterations = Integer.parseInt(authDocument.selectFirst("iterations").text());
+
+            byte[] proof = crypto.getClientProof(clientNonce, serverNonce, ADMIN_PASSWORD, salt, iterations);
+
+            String loginBody = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><request><clientproof>" + crypto.toHex(proof) + "</clientproof><finalnonce>" + serverNonce + "</finalnonce></request>";
+            res = Jsoup.connect(AUTHENTICATION_LOGIN).requestBody(loginBody).header("Content-type", "application/x-www-form-urlencoded; charset=UTF-8").header(REQUEST_TOKEN, verificationToken).cookie("SessionID", sessionID).method(Connection.Method.POST).execute();
+
+            mLoggedInCookie = res.cookie("SessionID");
+            mIsLoggedIn = true;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void run() {
+        getTrafficStats();
+
+        if(!mIsLoggedIn){
+            login();
+            getSignalStats();
+        }
+
+        else {
+            getSignalStats();
+        }
+
+
+    }
+
     public Modem() {
-        //this.isLoggedIn = false;
+        mIsLoggedIn = false;
+
     }
 }
