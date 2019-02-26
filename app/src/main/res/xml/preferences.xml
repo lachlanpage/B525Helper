@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <EditTextPreference
+        app:key="adminPassword"
+        app:title="Admin Password:"
+        app:defaultValue="password"
+        app:summary="password">
+    </EditTextPreference>
+
+    <EditTextPreference
+        app:key="modemIP"
+        app:title="Modem IP:"
+        app:defaultValue="192.168.8.1"
+        app:summary="192.168.8.1">
+    </EditTextPreference>
+
+    <Preference
+        app:key="feedback"
+        app:title="Send feedback"
+        app:summary="Report technical issues or suggest new features"/>
+
+</PreferenceScreen>
