@@ -3,13 +3,11 @@ package me.lachlanpage.b525helper;
 import android.content.Context;
 import android.graphics.Color;
 import android.support.annotation.NonNull;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.TextView;
-
 import java.util.List;
 
 public class ModemDataAdapter extends ArrayAdapter<ModemData>{
@@ -37,7 +35,8 @@ public class ModemDataAdapter extends ArrayAdapter<ModemData>{
         TextView heading = (TextView) convertView.findViewById(R.id.textViewName);
         TextView result = (TextView) convertView.findViewById(R.id.textViewResult);
 
-        // disgusting way to reformat lists and bypass recyclerview reusing formatting
+        // disgusting way to reformat lists and bypass recyclerview reusing formatting .. pls don't look down on me for it
+        // need to fix at a later date IF i restyle app
         heading.setTextColor(result.getTextColors().getDefaultColor());
         heading.setTextSize(16);
 
