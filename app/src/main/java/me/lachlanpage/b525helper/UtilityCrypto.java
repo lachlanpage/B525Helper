@@ -1,22 +1,13 @@
 package me.lachlanpage.b525helper;
 
-import android.os.Debug;
-import android.util.Log;
-
-import org.spongycastle.asn1.pkcs.PBKDF2Params;
 import org.spongycastle.crypto.digests.SHA256Digest;
 import org.spongycastle.crypto.generators.PKCS5S2ParametersGenerator;
 import org.spongycastle.crypto.params.KeyParameter;
-
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.Security;
 import java.util.UUID;
-
 import javax.crypto.Mac;
-import javax.crypto.SecretKey;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
 // Holds utility methods that could be used during client proof
@@ -41,13 +32,8 @@ public class UtilityCrypto {
         return data;
     }
 
-    public float bytesToGigabytes(float bytes) {
-        return bytes*(1e-9f);
-    }
-
     public String generateClientNonce() {
-        String clientNonce = UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
-        return clientNonce;
+        return UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
     }
 
     public byte[] getClientProof(String clientNone, String serverNonce, String password, String salt, int iterations)
@@ -88,11 +74,11 @@ public class UtilityCrypto {
             }
             return clientProof;
         }
+
         catch(Exception e) {
             System.out.println(e);
         }
 
         return null;
-
     }
 }
