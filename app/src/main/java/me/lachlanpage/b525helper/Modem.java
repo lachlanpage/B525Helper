@@ -6,6 +6,9 @@ import android.widget.Toast;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,6 +26,12 @@ public class Modem implements Runnable {
     private final String AUTHENTICATION_LOGIN = "http://"+ MODEM_IP + "/api/user/authentication_login";
     private final String SIGNAL_URL = "http://" + MODEM_IP + "/api/device/signal";
 
+    private final int ERROR_LOGIN_PASSWORD_ERROR = 108002;
+    private final int ERROR_LOGIN_TOO_MANY_TIMES = 108007;
+    private final int ERROR_LOGIN_TOO_MANY_USERS_LOGINED = 108005;
+    private final int ERROR_LOGIN_USERNAME_OR_PASSWORD_ERROR = 108006;
+    private final int ERROR_LOGIN_TOO_FREQUENT = 108010;
+
     // Common header used throughout SCRAM process
     private final String REQUEST_TOKEN = "__RequestVerificationToken";
 
@@ -35,6 +44,8 @@ public class Modem implements Runnable {
     private DataConversion mDataConversion;
 
     private Context mContext;
+
+    private String mErrorCodeString;
 
     public void getSignalStats() {
         try {
@@ -96,14 +107,14 @@ public class Modem implements Runnable {
             //System.out.println(signal_doc.toString());
             mDataMap.get("currentconnecttime").setmDataKey(mDataConversion.convertElapsedTime(currentConnectionTime));
 
-            mDataMap.get("currentupload").setmDataKey(mDataConversion.convertBytesToGigabytes(currentUpload) + " Gb");
-            mDataMap.get("currentdownload").setmDataKey(mDataConversion.convertBytesToGigabytes(currentDownload) + " Gb");
+            mDataMap.get("currentupload").setmDataKey(mDataConversion.convertBytesToGigabytes(currentUpload) + " GB");
+            mDataMap.get("currentdownload").setmDataKey(mDataConversion.convertBytesToGigabytes(currentDownload) + " GB");
 
             mDataMap.get("currentdownloadrate").setmDataKey(mDataConversion.convertBytesToMegabits(currentDownloadRate) + " Mbit/s");
             mDataMap.get("currentuploadrate").setmDataKey(mDataConversion.convertBytesToMegabits(currentUploadRate) + " Mbit/s");
 
-            mDataMap.get("totalupload").setmDataKey(mDataConversion.convertBytesToGigabytes(totalUpload) + " Gb");
-            mDataMap.get("totaldownload").setmDataKey(mDataConversion.convertBytesToGigabytes(totalDownload) + " Gb");
+            mDataMap.get("totalupload").setmDataKey(mDataConversion.convertBytesToGigabytes(totalUpload) + " GB");
+            mDataMap.get("totaldownload").setmDataKey(mDataConversion.convertBytesToGigabytes(totalDownload) + " GB");
             mDataMap.get("totalconnecttime").setmDataKey(mDataConversion.convertElapsedTime(totalConnectionTime));
 
         } catch(Exception e) { e.printStackTrace(); }
@@ -116,10 +127,8 @@ public class Modem implements Runnable {
 
             String sessionID = res.cookie("SessionID");
 
-            if(sessionID == null)
-            {
-                Toast.makeText(mContext, "Error getting modem IP", Toast.LENGTH_LONG).show();
-                throw new Error();
+            if(res.statusCode() != 200) {
+                mErrorCodeString = "Modem Status Code is not 200";
             }
 
             // Begin SCRAM authentication
@@ -136,6 +145,32 @@ public class Modem implements Runnable {
 
             String verificationToken = res.header(REQUEST_TOKEN);
             Document authDocument = res.parse();
+
+            // handle error code
+            Element errorCode = authDocument.selectFirst("code");
+            // we have an error while trying to login, must parse
+            if(errorCode != null) {
+                int code = Integer.parseInt(errorCode.text());
+
+                switch(code) {
+                    case ERROR_LOGIN_PASSWORD_ERROR:
+                        mErrorCodeString = "Error Login: Password Error";
+                        break;
+                    case ERROR_LOGIN_TOO_MANY_TIMES:
+                        mErrorCodeString = "Error Login: Login Too Many Times";
+                        break;
+                    case ERROR_LOGIN_TOO_MANY_USERS_LOGINED:
+                        mErrorCodeString = "Error Login: Too Many Users Login";
+                        break;
+                    case ERROR_LOGIN_USERNAME_OR_PASSWORD_ERROR:
+                        mErrorCodeString = "Error Login: User Or Password Error";
+                        break;
+                    case ERROR_LOGIN_TOO_FREQUENT:
+                        mErrorCodeString = "Error Login: Too frequent login's";
+                }
+                return;
+            }
+
             String serverNonce = authDocument.selectFirst("servernonce").text();
             String salt = authDocument.selectFirst("salt").text();
             int iterations = Integer.parseInt(authDocument.selectFirst("iterations").text());
@@ -147,28 +182,22 @@ public class Modem implements Runnable {
 
             mLoggedInCookie = res.cookie("SessionID");
 
-            if(mLoggedInCookie == null)
-            {
-                doToastMessage("Error Logging In");
-                throw new Error();
+            if (mLoggedInCookie == null) {
+                //mErrorCodeString = "Error Login: Cookie Null";
+                mIsLoggedIn = false;
+                return;
             }
 
+            mParentActivity.SetTitle("B525 Helper: Logged In");
             mIsLoggedIn = true;
-            doToastMessage("Login Successful");
-        } catch (Exception e) {
-            e.printStackTrace();
+            mErrorCodeString = null;
+
+        } catch(IOException e) {
+           mErrorCodeString = "Unable To Reach Login Page";
         }
     }
 
-    private void doToastMessage(final String text) {
-        mParentActivity.runOnUiThread(new Runnable() {
-
-            @Override
-            public void run() {
-                Toast.makeText(mContext, text, Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
+    public String getErrorCode() { return mErrorCodeString;}
 
 
     // called every 5 seconds interval to update listview
@@ -179,14 +208,11 @@ public class Modem implements Runnable {
 
         if(!mIsLoggedIn){
             login();
-            getSignalStats();
         }
 
         else {
             getSignalStats();
         }
-
-
     }
 
     public Modem(Context context, MainActivity act) {

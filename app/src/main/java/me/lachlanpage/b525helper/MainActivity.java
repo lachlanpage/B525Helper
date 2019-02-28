@@ -6,6 +6,8 @@ import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ListView;
+import android.widget.Toast;
+
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -31,7 +33,7 @@ public class MainActivity extends AppCompatActivity {
         modemTimer.scheduleAtFixedRate(new ModemController(mB525), 0,2000);
     }
 
-    private void updateAdapter() {
+    private void updateAdapter(final String errorText) {
 
         runOnUiThread(new Runnable() {
 
@@ -41,6 +43,18 @@ public class MainActivity extends AppCompatActivity {
                 mAdapter.clear();
                 mAdapter.addAll(mB525.getModemData());
                 mAdapter.notifyDataSetChanged();
+
+                if(errorText != null)
+                    Toast.makeText(MainActivity.this, errorText , Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    public void SetTitle(final String text) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                setTitle(text);
             }
         });
     }
@@ -75,7 +89,8 @@ public class MainActivity extends AppCompatActivity {
         public void run() {
             Thread modemThread = new Thread(mB525);
             modemThread.start();
-            updateAdapter();
+            String errorCode = mB525.getErrorCode();
+            updateAdapter(errorCode);
         }
     }
 }
