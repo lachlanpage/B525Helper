@@ -8,8 +8,10 @@
         android:id="@+id/textViewName"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginLeft="20dp"
+        android:layout_marginBottom="20dp"
+        android:layout_marginTop="10dp"
         android:gravity="left"
-        android:layout_margin="20dp"
         android:text="title"
         android:textSize="16sp"
         android:textStyle="bold" />

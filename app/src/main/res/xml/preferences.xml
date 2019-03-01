@@ -6,7 +6,7 @@
         app:key="adminPassword"
         app:title="Admin Password"
         app:defaultValue="password"
-        app:summary="Click to change password">
+        app:summary="Click to change password (App restart required)">
     </EditTextPreference>
 
     <!--
